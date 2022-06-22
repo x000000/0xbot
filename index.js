@@ -131,9 +131,7 @@ function getChannelStatus() {
         'client-id': process.env.CLIENT_ID,
       },
     });
-  }).then(r => { 
-    return r.data[0];
-  } );
+  }).then(r => r.data[0]);
 }
 
 async function updateViewerList()
@@ -170,7 +168,7 @@ function buildSay(timeout) {
     }
   
     lastResponseTime = _lastResponseTime = now;
-    // client.say(target, msg);
+    client.say(target, msg);
 
     return true;
   };
