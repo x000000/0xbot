@@ -1,5 +1,25 @@
-const quotes   = require('./quotes.json');
-const quoteIds = Object.keys(quotes);
+class Message  
+{
+  constructor(opts) {
+    if (typeof opts === 'string') {
+      this.text = opts;
+    } else {
+      Object.assign(this, opts);
+    }
+  }
+
+  toString() {
+    return this.args ? buildText(this.text, this.args) : this.text;
+  }
+}
+
+const rawQuotes = require('./quotes.json');
+const quoteIds  = Object.keys(rawQuotes);
+const quotes = Object.keys(quoteIds).reduce((m, id) => {
+  const quote = rawQuotes[id];
+  m[id] = new Message(typeof quote === 'string' ? `📜 #${id}. ${quote}` : quote);
+  return m;
+}, {});
 
 require('dotenv').config();
 const { randomInt } = require('crypto');
@@ -15,21 +35,6 @@ function buildText(text, args) {
       ? replacement[randomInt(0, replacement.length)]
       : replacement;
   });
-}
-
-class Message  
-{
-  constructor(opts) {
-    if (typeof opts === 'string') {
-      this.text = opts;
-    } else {
-      Object.assign(this, opts);
-    }
-  }
-
-  toString() {
-    return this.args ? buildText(this.text, this.args) : this.text;
-  }
 }
 
 const leftRightM     = [ ['левый', 'правый'] ];
@@ -315,13 +320,8 @@ const bite = (say => {
 
 const qu = (say => {
   return function (target, quoteId) {
-    let resp;
-    
     const id = quoteId || quoteIds[randomInt(0, quoteIds.length)];
-    resp = quotes[id];
-    resp = resp ? `📜 #${id}. ${resp}` : notFound;
-    
-    say(target, resp);
+    say(target, (quotes[id] || notFound).toString());
   };
 })(buildSay(responseTimeout));
 
