@@ -2,21 +2,12 @@
 
 require('dotenv').config();
 const twitch = require('./twitch');
+const vklive = require('./vklive');
 const { quoteIds, quotes, bites } = require('./aihhho');
 const { randomInt } = require('crypto');
 
 const notFound = process.env.NOT_FOUND_MESSAGE || 'The quote not found';
 const responseTimeout = +process.env.RESPONSE_TIMEOUT || 1000;
-
-const opts = {
-  identity: {
-    username: process.env.BOT_USERNAME,
-    password: process.env.OAUTH_TOKEN,
-  },
-  channels: [
-    process.env.CHANNEL_NAME,
-  ]
-};
 
 function isEmoteChant(availableEmotes, bttvEmotes, emotes, msg) {
   const emoteIds = emotes && Object.keys(emotes);
@@ -185,36 +176,52 @@ const sayProto = {
   },
 };
 
-const client = twitch.connect(opts);
-Object.assign(client.say, {
-  chant: sayProto.chant(buildSay(client, 16000)),
-  emoteChant: sayProto.emoteChant(buildSay(client, 16000)),
-  vote: sayProto.vote(buildSay(client, 60000)),
-  bite: sayProto.bite(buildSay(client, 10000)).bind(client),
-  qu: sayProto.qu(buildSay(client, responseTimeout)),
-});
-
-client.addListener('message', function(target, context, msg) {
+function onMessage(target, context, msg) {
   if (!msg.startsWith('!')) {
-    if (msg === 'Jebaited' || msg === 'CoolStoryBob') {
+    if (this.say.chant && (msg === 'Jebaited' || msg === 'CoolStoryBob')) {
       this.say.chant(target, msg);
     } else if (msg === '+' || msg === '-') {
       this.say.vote(target, msg);
-    } else if (isEmoteChant(this.availableEmotes, this.bttvEmotes, context.emotes, msg)) {
+    } else if (this.say.emoteChant && isEmoteChant(this.availableEmotes, this.bttvEmotes, context.emotes, msg)) {
       this.say.emoteChant(target, msg);
     }
     return;
   }
-
-  if (msg === '!кусь') {
+  
+  if (this.say.bite && msg === '!кусь') {
     this.say.bite(target, context);
     return;
   }
-
+  
   const match = msg.match(/^!qu(?:\s+(\d+))?$/i);
   if (match) {
     this.say.qu(target, match[1]);
   } else {
     console.warn(`* Unknown command: ${msg}`);
   }
+}
+
+const vkClient = vklive.connect({ channel: process.env.VK_CHANNEL_NAME });
+Object.assign(vkClient.say, {
+  vote: sayProto.vote(buildSay(vkClient, 60000)),
+  qu: sayProto.qu(buildSay(vkClient, responseTimeout)),
 });
+vkClient.addListener('message', onMessage);
+
+const ttvClient = twitch.connect({
+  identity: {
+    username: process.env.BOT_USERNAME,
+    password: process.env.OAUTH_TOKEN,
+  },
+  channels: [
+    process.env.CHANNEL_NAME,
+  ]
+});
+Object.assign(ttvClient.say, {
+  chant: sayProto.chant(buildSay(ttvClient, 16000)),
+  emoteChant: sayProto.emoteChant(buildSay(ttvClient, 16000)),
+  vote: sayProto.vote(buildSay(ttvClient, 60000)),
+  bite: sayProto.bite(buildSay(ttvClient, 10000)).bind(ttvClient),
+  qu: sayProto.qu(buildSay(ttvClient, responseTimeout)),
+});
+ttvClient.addListener('message', onMessage);

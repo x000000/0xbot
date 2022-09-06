@@ -7,6 +7,7 @@
     "start": "node index.js"
   },
   "dependencies": {
+    "centrifuge": "^2.8.5",
     "dotenv": "^10.0.0",
     "express": "^4.16.4",
     "tmi.js": "^1.2.1"
