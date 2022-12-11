@@ -2,8 +2,9 @@
 
 require('dotenv').config();
 const twitch = require('./twitch');
-const vklive = require('./vklive');
-const { quoteIds, quotes, bites } = require('./aihhho');
+// const vklive = require('./vklive');
+const { bites } = require('./bite');
+const aihhho = require('./aihhho');
 const { randomInt } = require('crypto');
 
 const notFound = process.env.NOT_FOUND_MESSAGE || 'The quote not found';
@@ -47,24 +48,39 @@ function isEmoteChant(availableEmotes, bttvEmotes, emotes, msg) {
   }
 }
 
+let sayCount = 0;
 function buildSay(client, timeout) {
-  client.lastResponseTime = 0;
-  let _lastResponseTime = 0;
+  if (!client.lastResponseTimeByChannel) {
+    client.lastResponseTimeByChannel = {};
+  }
+  const timeProp = 'say' + sayCount++;
   
   return function(target, msg) {
     const now = Date.now();
-
-    if ((now - _lastResponseTime < timeout) || (now - client.lastResponseTime < responseTimeout)) {
+    let lastResponseTime = client.lastResponseTimeByChannel[target];
+    
+    if (!lastResponseTime) {
+      client.lastResponseTimeByChannel[target] = lastResponseTime = {
+        shared: 0,
+        [timeProp]: 0,
+      };
+    }
+    
+    if ((now - (lastResponseTime[timeProp] || 0) < timeout) || (now - lastResponseTime.shared < responseTimeout)) {
       return false;
     }
   
-    client.lastResponseTime = _lastResponseTime = now;
+    lastResponseTime[timeProp] = now;
+    lastResponseTime.shared = now;
     client.say(target, msg);
 
     return true;
   };
 }
 
+const quoteProviders = {
+  '#aihhho': aihhho.quotesProvider,
+};
 const sayProto = {
   chant: say => {
     return (target, msg) => say(target, msg);
@@ -170,8 +186,11 @@ const sayProto = {
   
   qu: say => {
     return function (target, quoteId) {
-      const id = quoteId || quoteIds[randomInt(0, quoteIds.length)];
-      say(target, (quotes[id] || notFound).toString());
+      const provider = quoteProviders[target];
+      if (provider) {
+        const id = quoteId || provider.quoteIds[randomInt(0, provider.quoteIds.length)];
+        say(target, (provider.quotes[id] || notFound).toString());
+      }
     };
   },
 };
@@ -201,21 +220,21 @@ function onMessage(target, context, msg) {
   }
 }
 
+/*
 const vkClient = vklive.connect({ channel: process.env.VK_CHANNEL_NAME });
 Object.assign(vkClient.say, {
   vote: sayProto.vote(buildSay(vkClient, 60000)),
   qu: sayProto.qu(buildSay(vkClient, responseTimeout)),
 });
 vkClient.addListener('message', onMessage);
+*/
 
 const ttvClient = twitch.connect({
   identity: {
     username: process.env.BOT_USERNAME,
     password: process.env.OAUTH_TOKEN,
   },
-  channels: [
-    process.env.CHANNEL_NAME,
-  ]
+  channels: process.env.TTV_CHANNELS.split(',').map(c => c.trim()),
 });
 Object.assign(ttvClient.say, {
   chant: sayProto.chant(buildSay(ttvClient, 16000)),
@@ -224,4 +243,5 @@ Object.assign(ttvClient.say, {
   bite: sayProto.bite(buildSay(ttvClient, 10000)).bind(ttvClient),
   qu: sayProto.qu(buildSay(ttvClient, responseTimeout)),
 });
+
 ttvClient.addListener('message', onMessage);
