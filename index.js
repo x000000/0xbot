@@ -5,6 +5,7 @@ const twitch = require('./twitch');
 // const vklive = require('./vklive');
 const { bites } = require('./bite');
 const aihhho = require('./aihhho');
+const spyralkin = require('./spyralkin');
 const { randomInt } = require('crypto');
 
 const notFound = process.env.NOT_FOUND_MESSAGE || 'The quote not found';
@@ -80,6 +81,7 @@ function buildSay(client, timeout) {
 
 const quoteProviders = {
   '#aihhho': aihhho.quotesProvider,
+  '#spyralkin': spyralkin.quotesProvider,
 };
 const sayProto = {
   chant: say => {
