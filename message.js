@@ -1,3 +1,5 @@
+const { randomInt } = require('crypto');
+
 class Message {
   constructor(opts) {
     if (typeof opts === 'string') {
